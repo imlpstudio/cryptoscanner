@@ -7,6 +7,42 @@ from data_sources import CoinbaseMarketData, ema
 
 st.set_page_config(page_title="Crypto Scanner — Presets + Wide Universe", layout="wide")
 st.title("🧪 Crypto Multi-Strategy Scanner — Presets & Wide Universe")
+
+# ==== Strategy rules help panel ====
+help_md = """
+### Hype (attention momentum — not mathy)
+**Goal:** Catch coins with sudden *attention*; use price/volume only as confirmations.
+
+- **Pre-conditions:** BTC 1h > 200EMA **and** breadth ≥ 30% (share above 20EMA)
+- **Signals (score):** news peer-z, domain-weighted mentions (sentiment-gated), Google Trends 24h ROC z, TF-IDF novelty, volume z
+- **Confirms (AND):** price > 20EMA, Donchian(20) breakout, volume z ≥ 1.5
+- **Default trigger:** HypeScore ≥ 70
+
+### Whale (follow the money — flow/tape)
+**Goal:** Ride unusual **large prints** and **order-book pressure**.
+
+- **Pre-conditions:** BTC regime OK (1h > 200EMA)
+- **Signals (score):** big-trade notional z (≥ \$250k prints), L2 book imbalance z, volume z
+- **Confirms (AND):** price > 50EMA, Donchian(20) breakout, volume z ≥ 1.2
+- **Default trigger:** WhaleScore ≥ 70
+
+### Quant (math/trend — pure price/stat)
+**Goal:** Hold robust trends; no attention or flow data.
+
+- **Signals (score):** EMA(20–50) trend strength, Donchian(20) breakout, volume health
+- **Confirms (AND):** price > 200EMA, Donchian(20) breakout, volume z ≥ 1.0
+- **Default trigger:** QuantScore ≥ 70–75
+
+**Universe (shared):** Coinbase USD/USDC pairs; keep coins with 30-day **median hourly notional** ≥ \$300k–\$500k; cap to 100–150.
+"""
+
+try:
+    import streamlit as st  # ensure we only add this in the app context
+    with st.expander("📘 Strategy rules & filters", expanded=False):
+        st.markdown(help_md)
+except Exception:
+    pass
+# ==== end help panel ====
 st.caption("Compare saved filter sets; scan many Coinbase pairs; see exactly which coins were considered every run.")
 
 PRESET_PATH = "config/presets.yaml"

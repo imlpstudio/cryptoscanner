@@ -54,3 +54,29 @@ Edit `config/assets.yaml` — it maps product ids to names + keyword hints for n
 
 ## Export
 Use the **Download** button in the UI to export scan results as CSV.
+
+
+## Strategies & Filters
+
+### Hype (attention momentum — not mathy)
+- **Signals (score):** news peer-z, domain-weighted mentions (sentiment-gated), Google Trends 24h ROC z, TF-IDF novelty, volume z  
+- **Confirms (AND):** price > 20EMA, Donchian(20) breakout, volume z ≥ 1.5  
+- **Default trigger:** HypeScore ≥ 70  
+- **Regime:** BTC 1h > 200EMA and market breadth ≥ 30%
+
+### Whale (follow the money — flow/tape)
+- **Signals (score):** big-trade notional z (≥ \$250k prints), L2 book imbalance z, volume z  
+- **Confirms (AND):** price > 50EMA, Donchian(20) breakout, volume z ≥ 1.2  
+- **Default trigger:** WhaleScore ≥ 70  
+- **Regime:** BTC 1h > 200EMA
+
+### Quant (math/trend — pure price/stat)
+- **Signals (score):** EMA(20–50) trend strength, Donchian(20) breakout, volume health  
+- **Confirms (AND):** price > 200EMA, Donchian(20) breakout, volume z ≥ 1.0  
+- **Default trigger:** QuantScore ≥ 70–75
+
+### Universe (shared)
+- Coinbase USD/USDC pairs.  
+- Require **30-day median hourly notional** ≥ \$300k–\$500k.  
+- Cap universe (100–150) to scan many coins but avoid illiquid traps.
+
