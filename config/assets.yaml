@@ -1,0 +1,42 @@
+# Coinbase product universe (USD quotes). Add/remove as you like.
+# Each item: product_id, symbol, name, keywords[] used for RSS/Trends matching.
+- product_id: BTC-USD
+  symbol: BTC
+  name: Bitcoin
+  keywords: ["bitcoin", "btc crypto"]
+- product_id: ETH-USD
+  symbol: ETH
+  name: Ethereum
+  keywords: ["ethereum", "eth crypto"]
+- product_id: SOL-USD
+  symbol: SOL
+  name: Solana
+  keywords: ["solana", "sol crypto"]
+- product_id: LINK-USD
+  symbol: LINK
+  name: Chainlink
+  keywords: ["chainlink", "link crypto"]
+- product_id: ADA-USD
+  symbol: ADA
+  name: Cardano
+  keywords: ["cardano", "ada crypto"]
+- product_id: AVAX-USD
+  symbol: AVAX
+  name: Avalanche
+  keywords: ["avalanche", "avax crypto"]
+- product_id: DOGE-USD
+  symbol: DOGE
+  name: Dogecoin
+  keywords: ["dogecoin", "doge crypto"]
+- product_id: MATIC-USD
+  symbol: MATIC
+  name: Polygon
+  keywords: ["polygon", "matic crypto"]
+- product_id: NEAR-USD
+  symbol: NEAR
+  name: NEAR Protocol
+  keywords: ["near protocol", "near crypto"]
+- product_id: ARB-USD
+  symbol: ARB
+  name: Arbitrum
+  keywords: ["arbitrum", "arb crypto"]
