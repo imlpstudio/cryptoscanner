@@ -9,3 +9,7 @@ pytrends>=4.9.2
 plotly>=5.22.0
 vaderSentiment>=3.3.2
 PyYAML>=6.0.2
+vaderSentiment>=3.3.2
+scikit-learn>=1.4.0
+requests-cache>=1.2.0
+PyYAML>=6.0.2

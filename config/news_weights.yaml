@@ -1,0 +1,10 @@
+# Domain weights for headline quality (1.0 = neutral)
+weights:
+  coindesk.com: 1.2
+  cointelegraph.com: 1.1
+  decrypt.co: 1.05
+  theblock.co: 1.05
+  bloomberg.com: 1.2
+  reuters.com: 1.2
+  news.google.com: 1.0
+default: 1.0
