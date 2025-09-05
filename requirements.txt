@@ -8,3 +8,4 @@ nltk>=3.8.1
 pytrends>=4.9.2
 plotly>=5.22.0
 vaderSentiment>=3.3.2
+PyYAML>=6.0.2
