@@ -34,6 +34,11 @@ if dynamic:
 else:
     assets = load_assets_yaml()
 
+# If universe came back empty, guide the user
+if not assets:
+    st.error("Dynamic universe returned 0 assets. Lower the 'Min median hourly notional' or turn off Dynamic.")
+    st.stop()
+
 if run_btn:
     scan = HypeScanner(assets)
     with st.spinner("Scanning news, trends, and market confirms..."):
