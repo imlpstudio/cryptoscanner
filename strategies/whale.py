@@ -1,7 +1,18 @@
 from typing import List, Dict, Any, Tuple
 import pandas as pd, numpy as np, requests
+from math import exp
 from data_sources import CoinbaseMarketData, ema, atr, donchian_high, volume_z
 from requests_cache import CachedSession
+
+def _confidence(score, threshold, confirms_true, confirms_total, vol_z, vol_thr, regime_ok):
+    s = 1.0 / (1.0 + exp(-(score - threshold) / 8.0))
+    confirms = (confirms_true / max(1, confirms_total))
+    vol_factor = min(1.0, max(0.0, (vol_z - vol_thr + 0.5)))
+    base = 0.4*s + 0.4*confirms + 0.2*vol_factor
+    return 0.0 if not regime_ok else max(0.0, min(1.0, base))
+
+def _label(conf):
+    return "High" if conf >= 0.75 else ("Medium" if conf >= 0.5 else "Low")
 
 class WhaleStrategy:
     """
@@ -24,7 +35,6 @@ class WhaleStrategy:
         return df
 
     def _trades_recent(self, pid: str, limit: int = 200) -> pd.DataFrame:
-        # Coinbase REST: /products/{product-id}/trades — latest trades
         url = f"{self.cb.EXCHANGE_BASE}/products/{pid}/trades"
         r = self.http.get(url, params={"limit": limit}, timeout=10)
         r.raise_for_status()
@@ -32,7 +42,6 @@ class WhaleStrategy:
         if not isinstance(data, list): return pd.DataFrame()
         df = pd.DataFrame(data)
         if df.empty: return df
-        # expected fields: time, trade_id, price, size, side
         df["time"] = pd.to_datetime(df["time"], utc=True)
         df["price"] = df["price"].astype(float)
         df["size"] = df["size"].astype(float)
@@ -50,7 +59,7 @@ class WhaleStrategy:
         ask_vol = sum(float(x[1]) for x in asks)
         total = bid_vol + ask_vol
         if total == 0: return 0.0
-        return (bid_vol - ask_vol) / total  # -1..+1
+        return (bid_vol - ask_vol) / total
 
     def _regime_ok(self) -> bool:
         try:
@@ -63,7 +72,6 @@ class WhaleStrategy:
         if not self.assets: return pd.DataFrame(), pd.DataFrame()
         regime = self._regime_ok()
 
-        # peer arrays to z-score big-trade notional and ob-imbalance
         peer_stats = []
         details_rows = []
 
@@ -80,7 +88,6 @@ class WhaleStrategy:
                 ob_imb = float(self._orderbook_imbalance(pid, depth=50))
                 v_z = float(volume_z(mdf, 240))
 
-                # keep a few biggest trades for explain panel
                 if not trades.empty:
                     tops = trades.sort_values("notional", ascending=False).head(5)
                     for _, t in tops.iterrows():
@@ -97,7 +104,6 @@ class WhaleStrategy:
         if stats.empty:
             return pd.DataFrame(), pd.DataFrame(details_rows)
 
-        # z-scores across peers today
         def _z(s):
             std = s.std(ddof=1); return (s - s.mean())/(std if std else 1.0)
         stats["notional_z"] = _z(stats["big_notional"])
@@ -110,7 +116,7 @@ class WhaleStrategy:
             try:
                 mdf = self._market_df(pid)
                 if mdf.empty or len(mdf)<50:
-                    rows.append({"product_id": pid,"symbol": sym,"name": name,"eligible": False,"score": 0,"regime_ok": regime})
+                    rows.append({"product_id": pid,"symbol": sym,"name": name,"eligible": False,"score": 0,"regime_ok": regime,"confidence":0,"confidence_label":"Low"})
                     continue
                 price=float(mdf["close"].iloc[-1])
                 ema50_ok = price > float(mdf["ema50"].iloc[-1])
@@ -121,9 +127,12 @@ class WhaleStrategy:
                 ob_imb_z   = max(float(s.get("ob_imb_z",0.0)),0.0)
                 v_z        = float(s.get("vol_z",0.0))
 
-                # Whale score 0-100
                 raw = 0.5*notional_z + 0.3*ob_imb_z + 0.2*max(v_z,0.0)
                 score = float(np.clip(50 + 15*raw, 0, 100))
+
+                confirms_true = int(ema50_ok) + int(donchian_ok) + int(v_z >= vol_z_threshold) + int(regime)
+                conf = _confidence(score, threshold, confirms_true, 4, v_z, vol_z_threshold, regime)
+                label = _label(conf)
 
                 eligible = (score >= threshold) and ema50_ok and (v_z >= vol_z_threshold) and donchian_ok and regime
 
@@ -131,10 +140,11 @@ class WhaleStrategy:
                     "product_id": pid, "symbol": sym, "name": name, "price": price,
                     "vol_z": round(v_z,2), "ema50_ok": bool(ema50_ok), "donchian_breakout": bool(donchian_ok),
                     "score": round(score,2), "eligible": bool(eligible), "regime_ok": regime,
+                    "confidence": round(100*conf,1), "confidence_label": label,
                     "explain": "WhaleScore: big-trade notional + order-book imbalance + volume; EMA50 & Donchian confirm"
                 })
             except Exception as ex:
-                rows.append({"product_id": pid,"symbol": sym,"name": name,"error": str(ex),"eligible": False,"score":0,"regime_ok": regime})
-        out = pd.DataFrame(rows).sort_values(["eligible","score","vol_z"], ascending=[False,False,False]).reset_index(drop=True)
+                rows.append({"product_id": pid,"symbol": sym,"name": name,"error": str(ex),"eligible": False,"score":0,"regime_ok": regime,"confidence":0,"confidence_label":"Low"})
+        out = pd.DataFrame(rows).sort_values(["eligible","confidence","score","vol_z"], ascending=[False,False,False,False]).reset_index(drop=True)
         details = pd.DataFrame(details_rows).sort_values("notional", ascending=False)
         return out, details

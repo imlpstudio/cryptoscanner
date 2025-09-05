@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Tuple
 import pandas as pd, numpy as np
+from math import exp
 from sklearn.feature_extraction.text import TfidfVectorizer
 from data_sources import (
     CoinbaseMarketData, NewsScanner, TrendsScanner,
@@ -13,6 +14,17 @@ DEFAULT_WEIGHTS = {
     "volume_z": 0.20,
     "novelty_z": 0.20,
 }
+
+def _confidence(score, threshold, confirms_true, confirms_total, vol_z, vol_thr, regime_ok):
+    # sigmoid around the threshold
+    s = 1.0 / (1.0 + exp(-(score - threshold) / 8.0))
+    confirms = (confirms_true / max(1, confirms_total))
+    vol_factor = min(1.0, max(0.0, (vol_z - vol_thr + 0.5)))  # slightly above thr => ~0.5
+    base = 0.4*s + 0.4*confirms + 0.2*vol_factor
+    return 0.0 if not regime_ok else max(0.0, min(1.0, base))
+
+def _label(conf):
+    return "High" if conf >= 0.75 else ("Medium" if conf >= 0.5 else "Low")
 
 class HypeStrategy:
     """
@@ -73,6 +85,7 @@ class HypeStrategy:
         news_agg["velocity_z"]  = _z(news_agg,"headline_velocity")
         news_agg["news_w_z"]    = _z(news_agg,"news_w_mentions")
 
+        # Trends
         trows=[]
         for a in self.assets:
             last, roc = self.trends.interest_24h_metrics(a.get("keywords",[a["name"]]))
@@ -105,7 +118,7 @@ class HypeStrategy:
         ).fillna(0.0)
 
         btc_ok, breadth = self._regime_and_breadth()
-        regime_bad = (not btc_ok) and (breadth < 0.30)
+        regime_ok = btc_ok and (breadth >= 0.30)
 
         rows=[]
         for a in self.assets:
@@ -113,7 +126,7 @@ class HypeStrategy:
             try:
                 mdf = self._market_df(pid)
                 if mdf.empty or len(mdf)<50:
-                    rows.append({"product_id": pid,"symbol": sym,"name": name,"eligible": False,"regime_ok": (not regime_bad)})
+                    rows.append({"product_id": pid,"symbol": sym,"name": name,"eligible": False,"regime_ok": regime_ok,"score":0,"confidence":0,"confidence_label":"Low"})
                     continue
                 price=float(mdf["close"].iloc[-1]); v_z=float(volume_z(mdf,240))
                 ema20_ok = price > float(mdf["ema20"].iloc[-1])
@@ -134,8 +147,11 @@ class HypeStrategy:
                     + self.weights["novelty_z"]    * novelty_z
                 )
                 score = float(np.clip(50 + 15*raw, 0, 100))
-                eligible = (score >= threshold) and ema20_ok and donchian_ok and (v_z >= vol_z_threshold)
-                if regime_bad: eligible=False
+                confirms_true = int(ema20_ok) + int(donchian_ok) + int(v_z >= vol_z_threshold)
+                conf = _confidence(score, threshold, confirms_true, 3, v_z, vol_z_threshold, regime_ok)
+                label = _label(conf)
+
+                eligible = (score >= threshold) and ema20_ok and donchian_ok and (v_z >= vol_z_threshold) and regime_ok
 
                 rows.append({
                     "product_id": pid, "symbol": sym, "name": name, "price": price,
@@ -144,10 +160,11 @@ class HypeStrategy:
                     "news_mentions": int(n.get("mentions",0.0)),
                     "avg_sentiment": round(float(n.get("avg_sentiment",0.0)),3),
                     "novelty_z": round(novelty_z,2),
-                    "score": round(score,2), "eligible": bool(eligible), "regime_ok": (not regime_bad),
-                    "explain": "HypeScore: news+trends+volume+novelty; EMA20 & Donchian breakout confirm"
+                    "score": round(score,2), "eligible": bool(eligible), "regime_ok": regime_ok,
+                    "confidence": round(100*conf,1), "confidence_label": label,
+                    "explain": "HypeScore: news+trends+volume+novelty; EMA20 & Donchian confirm"
                 })
             except Exception as ex:
-                rows.append({"product_id": pid,"symbol": sym,"name": name,"error": str(ex),"eligible": False,"regime_ok": (not regime_bad),"score":0})
-        out = pd.DataFrame(rows).sort_values(["eligible","score","vol_z"], ascending=[False,False,False]).reset_index(drop=True)
+                rows.append({"product_id": pid,"symbol": sym,"name": name,"error": str(ex),"eligible": False,"regime_ok": regime_ok,"score":0,"confidence":0,"confidence_label":"Low"})
+        out = pd.DataFrame(rows).sort_values(["eligible","confidence","score","vol_z"], ascending=[False,False,False,False]).reset_index(drop=True)
         return out, news_details
