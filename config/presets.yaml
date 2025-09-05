@@ -1,0 +1,30 @@
+presets:
+  Hype_Default:
+    strategy: Hype
+    dynamic: true
+    max_assets: 100
+    min_notional: 300000         # median hourly notional (USD)
+    lookback_news: 24
+    threshold: 70                # Score threshold
+    vol_z_threshold: 1.5
+    big_trade_usd: 250000        # ignored by Hype, used by Whale
+
+  Whale_Loose:
+    strategy: Whale
+    dynamic: true
+    max_assets: 120
+    min_notional: 300000
+    lookback_news: 24
+    threshold: 70
+    vol_z_threshold: 1.2
+    big_trade_usd: 200000
+
+  Quant_Strict:
+    strategy: Quant
+    dynamic: true
+    max_assets: 120
+    min_notional: 400000
+    lookback_news: 24
+    threshold: 75
+    vol_z_threshold: 1.0
+    big_trade_usd: 250000
